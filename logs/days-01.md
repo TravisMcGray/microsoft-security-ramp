@@ -23,3 +23,24 @@ _(screenshot pending — rule armed, waiting on first firing)_
 ## Notes
 - Sentinel Training Lab solution was retired from Content Hub (~2025);
   pivoted to generating my own telemetry instead. Better trade.
+
+## KQL session 1 — demo Log Analytics workspace
+Operators learned: search, where, take, project, count, sort by desc
+
+Queries I can rebuild cold:
+- SecurityEvent | where EventID == 4625 | take 20
+- SecurityEvent | where EventID == 4625 | project TimeGenerated, Account, Computer
+- SecurityEvent | sort by TimeGenerated desc | take 5
+- SecurityEvent | where EventID == 4625 | count
+
+What I actually learned:
+- Every query starts from a source (table or search) — learned via error message
+- take = arbitrary rows, NOT first or most recent; recency requires sort by TimeGenerated desc
+- Zero results ≠ no data — check the time range picker first (invisible filter on every query)
+- take is for eyeballing data; finding patterns requires grouping/counting (summarize, Day 2)
+- 4625 rows are logged by the machine that was targeted; IpAddress/LogonType columns show origin
+
+Stumbled on (honest list):
+- Simple mode vs KQL mode in the Logs editor
+- Forgot the `search` keyword — "Operator source expression should be table or column"
+- 0-result count until I widened the time range
