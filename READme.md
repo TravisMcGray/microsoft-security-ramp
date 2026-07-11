@@ -26,5 +26,46 @@ raw-data preservation for audit.
 
 ## Day logs
 - [Day 1 — Workspace, connector, first detection](logs/day-01.md)
-<img width="902" height="642" alt="Day2-16incidents" src="https://github.com/user-attachments/assets/f99cc687-0318-4a4d-8af3-9856036180e2" />
 <img width="1568" height="656" alt="Rule1" src="https://github.com/user-attachments/assets/a90f6cb9-53df-46a3-9cda-41a8d3b0a491" />
+
+
+# Day 2 — July 11, 2026
+<img width="902" height="642" alt="Day2-16incidents" src="https://github.com/user-attachments/assets/f99cc687-0318-4a4d-8af3-9856036180e2" />
+
+## Pipe verification
+- AzureActivity ingesting; SentinelHealth showing scheduled-rule-run heartbeats.
+- Isolated prior no-data issue to first-ingestion latency (events delivered
+  hours after generation). Confirmed by morning ingestion.
+
+## Incident triage (live data)
+- Rule "Lab - Azure resource write operations" fired ~20 incidents on own
+  administrative activity (tag writes). IDs 3–26.
+- Walked incidents to verdict: Benign — own account (tmcgray204),
+  known home IP, MICROSOFT.RESOURCES/TAGS/WRITE, Administrative category.
+- Dispositioned queue: Resolved + classified. Distinction applied:
+  "Informational/expected" not "False positive" (detection worked; activity
+  was benign — mislabeling as FP corrupts rule accuracy metrics).
+
+## Rule tuning
+- Before: `AzureActivity | where OperationNameValue has "write"` → 6 hits/24h,
+  all generating incidents.
+- Tuned: added `| where CallerIpAddress != "<home IP>"` exclusion.
+- Validated by running the tuned query BY HAND rather than waiting for the
+  rule cycle. Expected 0 residual; got 2.
+- Investigated the 2: own alertRules/write activity from a DIFFERENT IP.
+- Finding: IP-based exclusion is brittle — my address isn't static, so noise
+  returns when IP changes. Stable identifier is Caller (account), not IP.
+  Production-correct move is a surgical exclusion (service account + specific
+  operation + specific resource), not a blanket IP or account filter.
+- Decision: left IP exclusion in place for lab; documented the limitation.
+
+## Ingestion delay (measured)
+- Ran: AzureActivity | extend delay = ingestion_time() - TimeGenerated
+       | summarize percentiles(delay, 95, 99)
+- [insert the two numbers once run]
+
+## Concepts locked
+- UTC in logs; Eastern = UTC-4 summer / -5 winter.
+- getschema to discover unfamiliar table columns.
+- Queues filter by default — check exclusions before trusting empty results.
+- Validate detection logic via manual query, not by waiting on schedule.
