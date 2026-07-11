@@ -26,3 +26,5 @@ raw-data preservation for audit.
 
 ## Day logs
 - [Day 1 — Workspace, connector, first detection](logs/day-01.md)
+<img width="902" height="642" alt="Day2-16incidents" src="https://github.com/user-attachments/assets/f99cc687-0318-4a4d-8af3-9856036180e2" />
+<img width="1568" height="656" alt="Rule1" src="https://github.com/user-attachments/assets/a90f6cb9-53df-46a3-9cda-41a8d3b0a491" />
