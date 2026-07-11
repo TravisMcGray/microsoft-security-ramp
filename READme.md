@@ -69,3 +69,32 @@ raw-data preservation for audit.
 - getschema to discover unfamiliar table columns.
 - Queues filter by default — check exclusions before trusting empty results.
 - Validate detection logic via manual query, not by waiting on schedule.
+
+# Day 3 — KQL Correlation & Baselining
+
+## Environment
+Azure Data Explorer help cluster (public sample data, ~885M rows, RawSysLogs).
+Practiced correlation and baselining on live data.
+
+## Skills
+- `summarize count() by` — collapsed 885M rows into per-type and per-hour summaries.
+- JSON field extraction: `tostring(tags.host)` to pull values from JSON columns.
+- `join kind=inner` — correlated two metric types on a shared hourly time key.
+- Debugged a join returning excess rows: root cause was join key granularity
+  (sub-second timestamps not bucketed). Fixed by binning to Hour and joining on Hour.
+- Windowed filtering: `where timestamp between (X .. Y)`.
+- Baselining: `datetime_part("hour", timestamp)` to find the average shape of a day.
+
+## Investigation (full loop)
+- Observed: one hour showed 62,700 requests vs ~451,000 for every other hour.
+- Hypothesis: anomaly, or partial first hour of data collection.
+- Baselined by hour-of-day across all days → every hour ~102,000, uniform.
+- Verdict: BENIGN. The low count was a collection-start artifact (partial hour),
+  not a security event. Confirmed no periodicity anomaly.
+
+## Takeaways
+- Query fields that exist — checked schema first; `sourceip` returned empty
+  (field absent in this dataset), `host` returned data. Can't hunt a field that isn't there.
+- Never call something an anomaly without baselining. Most spikes are artifacts
+  or normal periodicity; the baseline query decides which.
+- Table first, then operators: `RawSysLogs | where ... | summarize ... | join ...`
