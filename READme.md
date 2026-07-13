@@ -98,3 +98,61 @@ Practiced correlation and baselining on live data.
 - Never call something an anomaly without baselining. Most spikes are artifacts
   or normal periodicity; the baseline query decides which.
 - Table first, then operators: `RawSysLogs | where ... | summarize ... | join ...`
+
+
+# Day 4 — Detection Logic & Live Investigation
+
+## Multi-rule environment
+Enabled additional analytic rule templates in the Sentinel lab to build a
+realistic multi-rule environment (previously one custom rule).
+
+## Detection logic literacy — read and dissected rules across all 3 schedule types
+Practiced reading production rule templates and articulating, for each: what it
+detects, its data dependency, its MITRE mapping, and why its schedule fits its threat.
+
+- **Event-based (my custom rule):** every 5 min / 1-hr lookback. Detects individual
+  write events — short window, high frequency because events happen constantly and
+  need catching fast.
+- **Behavioral anomaly ("Suspicious Resource deployment"):** every 1 day / 14-day
+  lookback. Detects a *rare caller* creating resources (compromised-account abuse,
+  T1496/Impact). Long baseline because "rare" can't be seen in a short window.
+- **Catastrophic-NRT (AD FS / Golden SAML, T1578.003):** near-real-time, ~1 min,
+  queries on ingestion time. Detects federation-trust tampering — NRT because
+  forging identity tokens is catastrophic and fast; can't wait an hour.
+
+Key principle learned: run frequency and lookback are driven by *what you're
+detecting*, not preference. Event = short/frequent; anomaly = long baseline/infrequent;
+catastrophic = NRT. Also: not every daily rule is baselining — some are daily as a
+cost-vs-urgency tradeoff (expensive queries shouldn't run every 5 min for
+non-catastrophic threats).
+
+Data-dependency judgment applied: did NOT enable the AD FS / hybrid-identity rules
+because I don't collect that telemetry — enabling detections whose data sources I
+lack adds noise to the inventory without adding coverage.
+
+## Live investigation — brute-force alert (worked end to end)
+Investigated a "Unauthorized Cloud Region Access" brute-force alert against a login
+endpoint.
+
+- Read the alert, extracted key fields (source IP, target account, 403 responses).
+- Built an escalation framework: did it succeed? volume? source reputation? target value?
+- Pivoted to log search to check the source IP's full activity.
+- **Critical lesson — never disposition on absent data:** my first search returned
+  nothing due to a filter that didn't apply; I nearly called the alert benign. When
+  I fixed the search, it revealed 50 attempts from one source in under an hour against
+  one target — flipping the verdict from "benign" to a true-positive automated
+  brute-force.
+- **Second lesson — tie the success to the attacker:** searching logs for "success"
+  alone returned 100+ successful events from *other* users; a success is only relevant
+  if it's tied to the attacker's IP AND timeframe. The answer lives in the intersection
+  of both conditions, not either alone.
+- Verdict: TRUE POSITIVE, unsuccessful. Real automated brute-force, all attempts
+  blocked, no access gained. Escalation note: block source IP, monitor target account,
+  check for same pattern from other IPs.
+
+## Disposition terminology reinforced
+- False positive = detection was wrong (nothing happened).
+- Benign positive = detection was right, activity real but harmless/expected.
+- True positive = real malicious activity correctly detected (even if it failed).
+  A blocked brute-force is a true positive (real hostile intent), NOT benign
+  (which implies harmless/expected activity).
